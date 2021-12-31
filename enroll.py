@@ -74,6 +74,23 @@ def login(user,pw):
             'react_support_error_message': '',
         }
 
+    def construct_prompt_headers():
+        return {
+            'Connection': 'keep-alive',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Accept': 'text/plain, */*; q=0.01',
+        }
+
+    def construct_prompt_payload(sid):
+        return {
+            'sid': sid,
+            'device': 'phone1',
+            'factor': 'Phone Call',
+            'out_of_date': 'False',
+            'days_out_of_date': '0',
+            'days_to_block': 'None'
+        }
+
     s = requests.Session()
     # go to login page
     sso_res = s.get('https://act.ucsd.edu/webreg2')
@@ -91,13 +108,21 @@ def login(user,pw):
     duo_url,tx_string = extract_duo_url(two_step_res)
     duo_headers = construct_duo_headers(duo_url)
     duo_payload = construct_duo_payload(tx_string)
-    duo_res = requests.post(
+    duo_res = s.post(
         duo_url,
         headers=duo_headers,
         data=duo_payload
     )
     sid = extract_sid(duo_res)
+    prompt_headers = construct_prompt_headers()
+    prompt_payload = construct_prompt_payload(sid)
     print(sid)
+    res = s.post(
+        'https://api-ce13a1a7.duosecurity.com/frame/prompt',
+        headers=prompt_headers,
+        data=prompt_payload
+    )
+    print(res.content)
     s.close()
 
 def enroll(*,cookie,section,grade='L',unit,subjcode,crsecode,termcode):
@@ -110,7 +135,7 @@ def enroll(*,cookie,section,grade='L',unit,subjcode,crsecode,termcode):
         'Origin': 'https://act.ucsd.edu',
         'Referer': 'https://act.ucsd.edu/webreg2/main',
         'Cookie': cookie_string
-    }
+        }
     def generate_payload(section,grade,unit,subjcode,crsecode,termcode):
         return {
             'section': section,
@@ -124,18 +149,21 @@ def enroll(*,cookie,section,grade='L',unit,subjcode,crsecode,termcode):
     enroll_url = 'https://act.ucsd.edu/webreg2/svc/wradapter/secure/add-enroll'
     enroll_headers = generate_enroll_headers(cookie)
     enroll_payload = generate_payload(section,grade,unit,subjcode,crsecode,termcode)
-    res = s.post(enroll_url, headers=enroll_headers,data=payload)
-    sso_html_text = str(res.content)
-    soup = BeautifulSoup(sso_html_text, 'html.parser')
-    login_form_element = soup.find(id='login')
-    login_url = 'https://a5.ucsd.edu' + login_form_element['action']
-    login_headers = enroll_headers.copy()
-    #login_headers =
-    s.post(login_url,headers=login_headers)
+    res = s.post(enroll_url, headers=enroll_headers,data=enroll_payload)
+    print(res.content)
+    s.close()
 
 ## MAIN ##
 #username = input("Enter your username: ")
 #password = input("Enter your password: ")
 
-login('tbdoan','Wowzer1213')
+# enroll(
+#     cookie='zaada537eeeda2a9dade6149a46161ff4',
+#     section='070011',
+#     unit='4.00',
+#     subjcode='MATH',
+#     crsecode='153',
+#     termcode='WI22'
+# )
 
+login('tbdoan','Wowzer1213')
